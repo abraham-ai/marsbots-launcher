@@ -1,37 +1,43 @@
+import io
+import json
 import os
 import zipfile
+from dataclasses import dataclass
 
-import boto3
-from dotenv import load_dotenv
 from fastapi import Depends
 from fastapi import FastAPI
+from fastapi import File
+from fastapi import Form
 from fastapi import HTTPException
 from fastapi import Response
 from fastapi import status
+from fastapi import UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer
-from firebase_admin import auth
-from firebase_admin import credentials
-from firebase_admin import initialize_app
 from pydantic import BaseModel
 
 from .const import BOT_DIR
 from .const import ROOT_DIR
 
-load_dotenv()
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
+@dataclass
+class KeyPair:
+    uid: str
+    token: str
 
-session = boto3.Session(
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-)
 
-credential = credentials.Certificate(ROOT_DIR / "credential.json")
-initialize_app(credential)
+def get_keypair():
+    with open(os.path.join(ROOT_DIR, "credential.json"), "r") as f:
+        return KeyPair(**json.load(f))
+
+
+KEYPAIR = get_keypair()
+
+
+def check_token(bearer_auth):
+    if bearer_auth != KEYPAIR.token:
+        raise Exception("Invalid token")
 
 
 def get_user_token(
@@ -45,7 +51,7 @@ def get_user_token(
             headers={"WWW-Authenticate": 'Bearer realm="auth_required"'},
         )
     try:
-        decoded_token = auth.verify_id_token(credential.credentials)
+        check_token(credential.credentials)
     except Exception as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,7 +59,7 @@ def get_user_token(
             headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
         )
     res.headers["WWW-Authenticate"] = 'Bearer realm="auth_required"'
-    return decoded_token
+    return {}
 
 
 app = FastAPI()
@@ -74,47 +80,44 @@ def read_root():
     return {"Hello": "World"}
 
 
-@app.get("/user_token")
-async def hello_user(user=Depends(get_user_token)):
-    return {"msg": "Hello, user", "uid": user["uid"]}
-
-
-class DeployBotRequest(BaseModel):
-    bot_name: str
-    uid: str
+class TestRequest(BaseModel):
     user: dict = Depends(get_user_token)
 
 
-@app.post("/deploy")
-def deploy(req: DeployBotRequest):
-    bot_name = req.bot_name
-    uid = req.uid
-    s3 = boto3.client("s3")
-    with open(BOT_DIR / f"{bot_name}.zip", "wb") as f:
-        s3.download_fileobj(AWS_BUCKET_NAME, f"{uid}/{bot_name}.zip", f)
+@app.get("/user_token")
+async def hello_user(user: dict = Depends(get_user_token)):
+    return {"msg": "Hello, user", "uid": "wow"}
 
-    with open(BOT_DIR / f"{bot_name}.zip", "rb") as f:
-        packz = zipfile.ZipFile(f)
+
+@app.post("/deploy")
+async def deploy(
+    bot_name: str = Form(),
+    bot_code: UploadFile = File(...),
+    user: dict = Depends(get_user_token),
+):
+    # TODO: get zip file sent by request
+    tmp = await bot_code.read()
+
+    with zipfile.ZipFile(io.BytesIO(tmp), "r") as z:
         target_dir = BOT_DIR / bot_name
         target_dir.mkdir(parents=True, exist_ok=True)
-        for name in packz.namelist():
-            packz.extract(name, target_dir)
+        for name in z.namelist():
+            z.extract(name, target_dir)
 
-    os.remove(BOT_DIR / f"{bot_name}.zip")
+    # os.remove(BOT_DIR / f"{bot_name}.zip")
 
-    os.system(
-        f"""pm2 start bot.py --name "{bot_name}" -- bots/{bot_name}/{bot_name}.json --cog-path=bots.{bot_name}.{bot_name} --dotenv-path=bots/{bot_name}/.env""",
-    )
+    # os.system(
+    #     f"""pm2 start bot.py --name "{bot_name}" -- bots/{bot_name}/{bot_name}.json --cog-path=bots.{bot_name}.{bot_name} --dotenv-path=bots/{bot_name}/.env""",
+    # )
     return {"Hello": "World"}
 
 
 class StartBotRequest(BaseModel):
     bot_name: str
-    user: dict = Depends(get_user_token)
 
 
 @app.post("/start")
-def start_bot(req: StartBotRequest):
+def start_bot(req: StartBotRequest, user: dict = Depends(get_user_token)):
     bot_name = req.bot_name
     os.system(
         f"""pm2 start bot.py --name "{bot_name}" -- bots/{bot_name}/{bot_name}.json --cog-path=bots.{bot_name}.{bot_name} --dotenv-path=bots/{bot_name}/.env""",
@@ -124,11 +127,10 @@ def start_bot(req: StartBotRequest):
 
 class StopBotRequest(BaseModel):
     bot_name: str
-    user: dict = Depends(get_user_token)
 
 
 @app.post("/stop")
-def stop_bot(req: StopBotRequest):
+def stop_bot(req: StopBotRequest, user: dict = Depends(get_user_token)):
     bot_name = req.bot_name
     os.system(f"pm2 stop {bot_name}")
     return {"Hello": "World"}
