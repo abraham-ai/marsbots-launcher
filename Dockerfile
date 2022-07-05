@@ -1,9 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM python:3.9-buster AS python
+FROM python:3.9-slim-bullseye AS python
+
+ENV PYTHONUNBUFFERED 1
+EXPOSE 80
 WORKDIR /bots
+
 COPY web web
 COPY requirements.txt requirements.txt
-COPY .env .env
 COPY bot.py bot.py
 COPY credential.json credential.json
 

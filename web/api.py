@@ -104,11 +104,6 @@ async def deploy(
         for name in z.namelist():
             z.extract(name, target_dir)
 
-    # os.remove(BOT_DIR / f"{bot_name}.zip")
-
-    # os.system(
-    #     f"""pm2 start bot.py --name "{bot_name}" -- bots/{bot_name}/{bot_name}.json --cog-path=bots.{bot_name}.{bot_name} --dotenv-path=bots/{bot_name}/.env""",
-    # )
     return {"Hello": "World"}
 
 
