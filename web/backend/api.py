@@ -33,6 +33,7 @@ def get_keypair():
 
 
 KEYPAIR = get_keypair()
+DATABASE_URL = "postgresql://marsbots:marsbots@db:5432/marsbots"
 
 
 def check_token(bearer_auth):

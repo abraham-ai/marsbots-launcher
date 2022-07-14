@@ -244,5 +244,7 @@ secrets/
 dev/
 data/
 output/
-bots/
+bots/*
+!bots/.gitkeep
 credential.json
+pm2.config.js

@@ -28,7 +28,7 @@ class MarsBot(commands.Bot):
     def load_settings(self, specfile_path: str) -> MarsBotSettings:
         settings = json.load(open(specfile_path))
         if "command_prefix" not in settings:
-            # Hack to allow a bot without command prefix?
+            # Hack to allow a bot without command prefix
             settings["command_prefix"] = constants.UNLIKELY_PREFIX
         if "intents" not in settings:
             settings["intents"] = []
