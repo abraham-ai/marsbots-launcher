@@ -10,9 +10,6 @@ COPY entrypoint.sh entrypoint.sh
 
 RUN pip install -r requirements.txt
 
-RUN apt-get update && apt-get install -y nodejs npm
-RUN npm install -g pm2@latest
-
 RUN chmod +x entrypoint.sh
 RUN cp entrypoint.sh /tmp/entrypoint.sh
 

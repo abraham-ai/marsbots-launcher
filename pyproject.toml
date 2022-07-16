@@ -6,7 +6,9 @@ authors = ["Jonathan Miller <jon@jmill.dev>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-marsbots = "^0.1.0"
+marsbots = "^0.2.0"
+supervisor = "^4.2.4"
+superfsmon = "^1.2.1"
 
 [tool.poetry.dev-dependencies]
 black = "^22.3.0"
