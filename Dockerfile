@@ -8,6 +8,8 @@ COPY requirements.txt requirements.txt
 COPY bot.py bot.py
 COPY entrypoint.sh entrypoint.sh
 
+RUN apt-get update && apt-get install -y git
+
 RUN pip install -r requirements.txt
 
 RUN chmod +x entrypoint.sh
